@@ -1,0 +1,13 @@
+MODULE Init;
+
+IMPORT Log;
+
+PROCEDURE Do;
+BEGIN
+    Log.Clear;
+    Log.String("Hello World!"); Log.Ln
+END Do;
+
+BEGIN
+    Do
+END Init.
