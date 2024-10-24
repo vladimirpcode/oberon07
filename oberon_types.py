@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-
+from typing import NamedTuple
 
 
 class OberonType:
@@ -26,9 +26,14 @@ class BasicType(OberonType):
     basic_type: BasicTypesEnum
 
 
+class Identifier(NamedTuple):
+    name: str
+    is_exported: bool
+
+
 @dataclass
 class RecordField:
-    name: str
+    identifier: Identifier
     field_type: OberonType
 
 
@@ -58,3 +63,15 @@ class ProcedureParameter:
 class ProcedureType(OberonType):
     return_type: OberonType
     parameters: list[ProcedureParameter]
+
+
+class CompositeIdentifier(NamedTuple):
+    parent_name: str
+    child_name: str
+
+
+class Constant(NamedTuple):
+    name: str
+    value: int | float | bool | str
+    constant_type: OberonType
+
