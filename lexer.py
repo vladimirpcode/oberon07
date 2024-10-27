@@ -7,6 +7,8 @@ class WrapperForReceivingCharacters:
         self._data = s
         self.ch = ''
         self._index = 0
+        self.current_line = ""
+        self.current_line_number = 1
         self.get_next()
     
     def get_next(self):
@@ -15,6 +17,11 @@ class WrapperForReceivingCharacters:
             return
         self.ch = self._data[self._index]
         self._index += 1
+        if self.ch == "\n":
+            self.current_line_number += 1
+            self.current_line = ""
+        else:
+            self.current_line += self.ch
 
     def is_ch_hex_digit(self) -> bool:
         return self.ch in ['A', 'B', 'C', 'D', 'E', 'F']
@@ -99,6 +106,9 @@ class Lexer:
         self.value = ""
         self.lex = Lex.unknown_lex
         self.get_next()
+
+    def get_context(self):
+        return f"{self._wrap.current_line_number}) {self._wrap.current_line}"
 
     def get_next(self):
         while self._wrap.ch.isspace():
@@ -186,6 +196,8 @@ class Lexer:
                 if self._wrap.ch == '=':
                     self.lex = Lex.assignment
                     self._wrap.get_next()
+        
+        print(self.lex.value[0])
 
                 
             

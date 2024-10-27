@@ -3,8 +3,15 @@ from enum import Enum
 from typing import NamedTuple
 
 
+class Identifier(NamedTuple):
+    name: str
+    is_exported: bool
+
+
+@dataclass
 class OberonType:
-    pass
+    module_name: str
+    name: Identifier
 
 
 @dataclass
@@ -24,11 +31,6 @@ class BasicTypesEnum(Enum):
 
 class BasicType(OberonType):
     basic_type: BasicTypesEnum
-
-
-class Identifier(NamedTuple):
-    name: str
-    is_exported: bool
 
 
 @dataclass
@@ -68,10 +70,4 @@ class ProcedureType(OberonType):
 class CompositeIdentifier(NamedTuple):
     parent_name: str
     child_name: str
-
-
-class Constant(NamedTuple):
-    name: str
-    value: int | float | bool | str
-    constant_type: OberonType
 

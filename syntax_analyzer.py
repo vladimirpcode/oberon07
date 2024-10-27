@@ -1,15 +1,27 @@
 from lexer import Lexer, Lex
 from oberon_types import *
 from ast_node import AstNode
+from nametable import *
 
 
 class Parser:
     def __init__(self, program: str) -> None:
         self._lexer = Lexer(program)
+        self._module_name = None
+        self._nametable = Nametable()
         self._parse_module()
 
     def _raise_expected_exception(self, expected: str):
-        raise Exception(f"Ожидалось {expected}, но {self._lexer.lex.value[0]}")
+        raise Exception(f"{self._lexer.get_context()}\nОжидалось {expected}, но {self._lexer.lex.value[0]}")
+
+    def resolve_type(self, typename: Identifier | CompositeIdentifier) -> OberonType:
+        nametable_entries = self.nametable.get_all_identifiers_for_current_scope()
+        for entry in nametable_entries:
+            if not issubclass(type(entry.entity), OberonType):
+                continue
+            if entry.name == typename:
+                return entry.entity
+        raise Exception(f"неизвестные тип")
 
     def _check(self, lex: Lex):
         if self._lexer.lex != lex:
@@ -156,8 +168,8 @@ class Parser:
     def _parse_procedure_type(self) -> ProcedureType:
         self._check(Lex.PROCEDURE)
         if self._lexer.lex == Lex.left_bracket:
-            return_type, procedure_parameters = self.parse_formal_parameters()
-        return ProcedureType(return_type, procedure_parameters)
+            return self._parse_formal_parameters()
+        return ProcedureType(self._module_name, None, NoReturnType, list())
     
     ######################################################
     #                  TYPE DECLARATIONS RULES END       #
@@ -189,11 +201,11 @@ class Parser:
             self._parse_term()
 
     def _parse_term(self) -> AstNode:
-        self.parse_factor()
+        self._parse_factor()
         while self._lexer.lex in [Lex.multiple, Lex.divide, Lex.DIV, 
                                   Lex.MOD, Lex.ampersand]:
             self._lexer.get_next()
-            self.parse_factor()
+            self._parse_factor()
     
     def _parse_factor(self) -> AstNode:
         if self._lexer.lex in [Lex.number, Lex.string, Lex.NIL, Lex.TRUE,
@@ -204,7 +216,7 @@ class Parser:
         elif self._lexer.lex == Lex.ident:
             self._parse_designator()
             if self._lexer.lex == Lex.left_bracket:
-                self.parse_actual_parameters()
+                self._parse_actual_parameters()
         elif self._lexer.lex == Lex.left_bracket:
             self._lexer.get_next()
             self._parse_expression()
@@ -281,7 +293,8 @@ class Parser:
                     self._lexer.get_next()
                     self._parse_expression()
                 else:
-                    self._parse_actual_parameters()
+                    if self._lexer.lex == Lex.left_bracket:
+                        self._parse_actual_parameters()
             case Lex.IF:
                 self._parse_if_statement()
             case Lex.CASE:
@@ -359,7 +372,29 @@ class Parser:
         self._parse_expression()
         self._check(Lex.DO)
         self._parse_statement_sequence()
-        #Todo
+        while self._lexer.lex == Lex.ELSIF:
+            self._lexer.get_next()
+            self._parse_expression()
+            self._check(Lex.DO)
+            self._parse_statement_sequence()
+        self._check(Lex.END)
+
+    def _parse_repeat_statement(self):
+        self._check(Lex.REPEAT)
+        self._parse_statement_sequence()
+        self._check(Lex.UNTIL)
+        self._parse_expression()
+
+    def _parse_for_statement(self):
+        self._check(Lex.FOR)
+        self._parse_ident()
+        self._check(Lex.assignment)
+        self._parse_expression()
+        self._check(Lex.TO)
+        self._parse_expression()
+        if self._lexer.lex == Lex.BY:
+            self._lexer.get_next()
+            self._parse_const_expression()
 
 
     ######################################################
@@ -370,15 +405,16 @@ class Parser:
     #              OTHER DECLARATIONS RULES              #
     ######################################################
     
-    def _parse_procedure_declaration(self):
+    def _parse_procedure_declaration(self) -> Procedure:
         self._parse_procedure_heading()
         self._check(Lex.semicollon)
         self._parse_procedure_body()
         self._parse_ident()
 
-    def _parse_procedure_heading(self):
+    def _parse_procedure_heading(self) -> ProcedureHead:
+        procedure_head = ProcedureHead()
         self._check(Lex.PROCEDURE)
-        self._parse_identdef()
+        procedure_head.name = self._parse_identdef()
         if self._lexer.lex == Lex.left_bracket:
             self._parse_formal_parameters()
     
@@ -409,30 +445,41 @@ class Parser:
                 self._parse_variable_declaration()
                 self._check(Lex.semicollon)
         while self._lexer.lex == Lex.PROCEDURE:
-            self.parse_procedure_declaration()
+            self._parse_procedure_declaration()
             self._check(Lex.semicollon)
 
-    def _parse_formal_parameters(self):
+    def _parse_formal_parameters(self) -> ProcedureType:
         self._check(Lex.left_bracket)
+        procedure_parameters: list[ProcedureParameter] = list()
         if self._lexer.lex != Lex.right_bracket:
-            self._parse_fp_section()
+            procedure_parameters += self._parse_fp_section()
             while self._lexer.lex == Lex.semicollon:
                 self._lexer.get_next()
-                self._parse_fp_section()
+                procedure_parameters += self._parse_fp_section()
         self._check(Lex.right_bracket)
+        return_type = NoReturnType()
         if self._lexer.lex == Lex.semicollon:
             self._lexer.get_next()
-            self._parse_qualident()
+            return_type = self.resolve_type(self._parse_qualident())
+        return ProcedureType(self._module_name, None, return_type, procedure_parameters)
 
-    def _parse_fp_section(self):
+    def _parse_fp_section(self) -> list[ProcedureParameter]:
+        by_reference = False
         if self._lexer.lex == Lex.VAR:
+            by_reference = True
             self._lexer.get_next()
-        self._parse_ident()
+        parameter_names: list[str] = list()
+        parameter_names.append(self._parse_ident())
         while self._lexer.lex == Lex.comma:
             self._lexer.get_next()
-            self._parse_ident()
+            parameter_names.append(self._parse_ident())
         self._check(Lex.colon)
-        self._parse_formal_type()
+        parameters_type = self.resolve_type(self._parse_formal_type())
+        procedure_parameters: list[ProcedureParameter] = list()
+        for name in parameter_names:
+            procedure_parameters.append(ProcedureParameter(name, parameters_type, by_reference))
+        return procedure_parameters
+
 
     def _parse_formal_type(self):
         while self._lexer.lex == Lex.ARRAY:
@@ -446,7 +493,7 @@ class Parser:
 
     def _parse_module(self):
         self._check(Lex.MODULE)
-        module_name = self._parse_ident()
+        self._module_name = self._parse_ident()
         self._check(Lex.semicollon)
         if self._lexer.lex == Lex.IMPORT:
             self._parse_import_list()
@@ -455,8 +502,8 @@ class Parser:
             self._lexer.get_next()
             self._parse_statement_sequence()
         self._check(Lex.END)
-        if self._parse_ident() != module_name:
-            self._raise_expected_exception(f"имя модуля {module_name}")
+        if self._parse_ident() != self._module_name:
+            self._raise_expected_exception(f"имя модуля {self._module_name}")
         self._lexer.get_next()
         self._check(Lex.dot)
 
