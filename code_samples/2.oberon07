@@ -1,0 +1,40 @@
+MODULE Init;
+
+IMPORT Log;
+
+CONST
+    NAME = "pc";
+    len = 100;
+    pi = 3.14;
+    nl = 10X;
+
+TYPE
+    arr = ARRAY 10 OF INTEGER;
+    proc = PROCEDURE (a, b, c:INTEGER) : REAL;
+    status = RECORD
+        code: INTEGER;
+        msg: STRING
+    END;
+
+VAR
+    a,b,c:INTEGER;
+    s: STRING;
+    ch: CHAR;
+    r: REAL;
+
+PROCEDURE Do;
+BEGIN
+    Log.Clear;
+    Log.String("Hello World!"); Log.Ln
+END Do;
+
+PROCEDURE Foo(VAR ab: INTEGER): BOOLEAN;
+VAR
+    test: STRING;
+BEGIN
+    a := a + 1
+END Foo;
+
+BEGIN
+    Do
+END Init.

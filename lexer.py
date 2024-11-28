@@ -95,9 +95,7 @@ class Lex(Enum):
     VAR = "VAR",
     WHILE = "WHILE",
     unknown_lex = "_неизвестная лексема_",
-    end_of_text = "_конец текста_"
-
-
+    end_of_text = "_конец текста_",
 
 
 class Lexer:
@@ -117,20 +115,20 @@ class Lexer:
             self.lex = Lex.end_of_text
         elif self._wrap.ch.isnumeric():
             number_str = self._wrap.ch
-            self.get_next()
-            while self._wrap.isnumeric() or self._wrap.is_ch_hex_digit:
+            self._wrap.get_next()
+            while self._wrap.ch.isnumeric() or self._wrap.is_ch_hex_digit():
                 number_str += self._wrap.ch
-                self.get_next()
+                self._wrap.get_next()
             if self._wrap.ch == 'H':
                 self._wrap.get_next()
                 self.lex = Lex.number
                 self.value = int(number_str, base=16)
-            elif self._wrap == 'X':
+            elif self._wrap.ch == 'X':
                 self._wrap.get_next()
                 self.lex = Lex.string
                 self.value = chr(int(number_str, base=16))
-            elif self._wrap == '.':
-                number_str += self._wrap
+            elif self._wrap.ch == '.':
+                number_str += self._wrap.ch
                 self._wrap.get_next()
                 while self._wrap.ch.isnumeric():
                     number_str += self._wrap.ch
@@ -141,12 +139,15 @@ class Lexer:
                     if self._wrap.ch in ['+', '-']:
                         number_str += self._wrap.ch
                         self._wrap.get_next()
+                    if not self._wrap.ch.isnumeric():
+                        raise Exception("ожидалась цифра после E [+ | -] в дроби")
+                    number_str += self._wrap.ch
+                    self._wrap.get_next()
                     while self._wrap.ch.isnumeric():
                         number_str += self._wrap.ch
                         self._wrap.get_next()
                 self.lex = Lex.number
                 value = float(number_str)
-                        
             else:
                 self.lex = Lex.number
                 self.value = int(number_str, base=10)
@@ -196,8 +197,26 @@ class Lexer:
                 if self._wrap.ch == '=':
                     self.lex = Lex.assignment
                     self._wrap.get_next()
-        
-        print(self.lex.value[0])
+            elif self.lex == Lex.left_bracket:
+                if self._wrap.ch == '*':
+                    self._wrap.get_next()
+                    while True:
+                        if self._wrap.ch == self._wrap.EOT:
+                            self.lex = Lex.end_of_text
+                            return
+                        if self._wrap.ch == '*':
+                            self._wrap.get_next()
+                            if self._wrap.ch == ')':
+                                self._wrap.get_next()
+                                break
+                        else:
+                            self._wrap.get_next()
+                    self.get_next()
+        return
+        if self.lex == Lex.ident:
+            print(f"идентификатор: {self.value}")
+        else:
+            print(self.lex.value[0])
 
                 
             

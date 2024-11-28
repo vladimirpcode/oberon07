@@ -6,12 +6,15 @@ from typing import NamedTuple
 class Identifier(NamedTuple):
     name: str
     is_exported: bool
+    
+    def __str__(self) -> str:
+        return self.name + ("*" if self.is_exported else "")
 
 
 @dataclass
 class OberonType:
     module_name: str
-    name: Identifier
+    type_name: Identifier
 
 
 @dataclass
@@ -70,4 +73,17 @@ class ProcedureType(OberonType):
 class CompositeIdentifier(NamedTuple):
     parent_name: str
     child_name: str
+    
 
+def identifier_to_str(identifier: Identifier | CompositeIdentifier) -> str:
+    if type(identifier) is Identifier:
+        return identifier.name
+    elif type(identifier) is CompositeIdentifier:
+        if identifier.parent_name is None:
+            raise ValueError("родительское имя составного идентификатора не может быть пустым")
+        if identifier.child_name is not None and identifier.child_name != "":
+            return identifier.parent_name + "." + identifier.child_name
+        else:
+            return identifier.parent_name
+    else:
+        raise ValueError(f"Неподходящий тип идентификатора - {str(type(identifier))}")
