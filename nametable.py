@@ -72,11 +72,28 @@ class Nametable:
         self.open_scope()
 
     def get_global_scope_identifiers(self) -> list[NameTableEntry]:
+        print(self)
+        def skip_local_scope(nametable: Nametable, index: int) -> int:
+            if not isinstance(nametable._entries[index].entity, ScopeOpen):
+                raise Exception("ожидалось ScopeOpen")
+            index += 1
+            while index < len(nametable._entries) and not isinstance(nametable._entries[index].entity, ScopeClose):
+                index += 1
+            if index < len(nametable._entries):
+                index += 1
+            return index
+
         if len(self._entries) == 1:
             return []
         identifiers = []
         i = 1
-        while i < len(self._entries) and not isinstance(self._entries[i].entity, (ScopeOpen, ScopeClose)):
+        while i < len(self._entries):
+            if isinstance(self._entries[i].entity, ScopeOpen):
+                i = skip_local_scope(self, i)
+            if i >= len(self._entries):
+                return identifiers
+            if isinstance(self._entries[i].entity, ScopeClose):
+                return identifiers
             identifiers.append(self._entries[i])
             i += 1
         return identifiers

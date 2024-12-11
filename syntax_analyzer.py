@@ -254,11 +254,14 @@ class Parser:
         ident_str = identifier_to_str(composite_identifier)
         nametable_entries = self._nametable.get_all_identifiers_for_current_scope()
         for entry in nametable_entries:
+            print(f"DEBUG: {identifier_to_str(entry.name)}")
             if ident_str == identifier_to_str(entry.name):
                 if isinstance(entry.entity, Procedure):
                     return True
                 else:
                     return False
+        for n in self._nametable._entries:
+            print(n.name)
         raise Exception("неизвестный идентификатор " + ident_str)
 
     def _parse_designator(self):
